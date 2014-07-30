@@ -153,6 +153,11 @@ function fixup_check_all_nodes() {
  */
 function fixup_check_node_by_alias($alias) {
 
+  // strip off one leading slash
+  if (strpos($alias, '/') == 0) {
+    $alias = substr($alias, 1);
+  }
+
   // Lookup an alias to get a path like '/node/44'
   if ($path = drupal_get_normal_path($alias)) {
     debugme("got normal path $path for $alias");
