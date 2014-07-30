@@ -27,16 +27,17 @@ function debugme($message) {
   }
 }
 
-
 /** 
- * Check a node's body for links to html
+ * Parse some HTML text and check content for links to html
+ *
+ * Returns false if the HTML text was fine, and true if the HTML text was modified
  */
-function fixup_check_node_body ($node) {
+function fixup_check_html (&$htmltext) {
 
-  // Parse the body as HTML
-  $html = str_get_html($node->body[$node->language][0]['value']);
+  $changed = false;
 
-  $mustfix = false;
+  /* parse that text as as HTML */
+  $html = str_get_html($htmltext);
 
   // for each link
   foreach ($html->find('a') as $link) {
@@ -59,7 +60,7 @@ function fixup_check_node_body ($node) {
         }
         debugme(" -> new href = $new_href");
         $link->href = $new_href;
-        $mustfix = true;
+        $changed = true;
       }
 
     } 
@@ -78,15 +79,50 @@ function fixup_check_node_body ($node) {
         }
         debugme(" -> new href = $new_href");
         $link->href = $new_href;
-        $mustfix = true;
+        $changed = true;
       }
     }
   }
 
+  if ($changed) {
+    $htmltext = $html;
+  }
+  return $changed;
+}
+
+
+/** 
+ * Check a node's body for links to html
+ */
+function fixup_check_node ($node) {
+
+  // Some nodes will not be altered by this
+  $changed = false;
+
+  // Must nodes have a body, but not all
+  if (field_info_instance('node', 'body', $node->type)) {
+    debugme('node '.$node->nid.' has a body');
+    $htmltext = $node->body[$node->language][0]['value'];
+    if (fixup_check_html($htmltext)) {
+      $node->body[$node->language][0]['value'] = $htmltext;
+      $changed = true;
+    }
+  }
+
+  // In our schema, some nodes have a secondary long text area
+  if (field_info_instance('node', 'field_sidebar', $node->type)) {
+    debugme('node '.$node->nid.' has a sidebar');
+    $htmltext = $node->field_sidebar[$node->language][0]['value'];
+    if (fixup_check_html($htmltext)) {
+      $node->field_sidebar[$node->language][0]['value'] = $htmltext;
+      $changed = true;
+    }
+  }
+
   // we had to modify it to make it work
-  if ($mustfix) {
-    $node->body[$node->language][0]['value'] = $html;
+  if ($changed) {
     $node->revision = 1;
+    $node->path['pathauto'] = 0;
     $node->log = "Updated automatically to fix to absolute links and links to .html";
     node_save($node);
     print 'Modified node '.$node->nid.' at path '.$node->path."\n";
@@ -105,9 +141,10 @@ function fixup_check_all_nodes() {
 
     // Load the node
     $node = node_load($obj->nid);
+    debugme("visiting node ".$node->nid." with path ".$node->path."\n");
 
     // Check the node body
-    fixup_check_node_body($node);
+    fixup_check_node($node);
   }
 }
 
@@ -126,7 +163,7 @@ function fixup_check_node_by_alias($alias) {
       debugme("got node ".$node->nid." for normal path");
 
       // check the node body
-      fixup_check_node_body($node);
+      fixup_check_node($node);
     }
   }
   // the 'alias' might already by like '/node/44'
@@ -135,7 +172,7 @@ function fixup_check_node_by_alias($alias) {
     debugme("got node ".$node->nid." for $alias");
 
     // check the node body
-    fixup_check_node_body($node);
+    fixup_check_node($node);
   }
 }
 
