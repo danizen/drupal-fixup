@@ -187,7 +187,7 @@ function fixup_check_node_by_alias($alias) {
 function fixup_check_nodes_by_aliases($aliases) {
   if (is_array($aliases)) {
     foreach ($aliases as $an_alias) {
-      fikup_check_node_by_alias($an_alias);
+      fixup_check_node_by_alias($an_alias);
     }
   }
   else {
