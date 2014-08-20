@@ -19,7 +19,7 @@ Dan Davis, http://danizen.net/
 
 ## License ##
 
-Please do not take liberties with this.
+MIT License
 
 ## Description ##
 
