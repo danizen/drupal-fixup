@@ -7,6 +7,12 @@ A simple fix to a simple problem:
  - absolute URLs that point to the old site
  - URL paths that include a misleading .html pattern at the end
 
+## Elaboration ##
+
+More problems:
+
+ - Pathauto and workbench moderation interaction, etc.
+
 ## Description ##
 
 Includes Simple HTML DOM Parser from http://simplehtmldom.sourceforge.net/
