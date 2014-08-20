@@ -27,7 +27,7 @@ Includes Simple HTML DOM Parser from http://simplehtmldom.sourceforge.net/
 
 fixup.php acts as a front-end to this and traverses nodes in Drupal as needed to fix their contents.
 
-## License / Contributing ##
+## Contributing ##
 
 This is basically private code
 
