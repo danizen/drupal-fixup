@@ -13,6 +13,14 @@ More problems:
 
  - Pathauto and workbench moderation interaction, etc.
 
+## Author ##
+
+Dan Davis, http://danizen.net/
+
+## License ##
+
+Please do not take liberties with this.
+
 ## Description ##
 
 Includes Simple HTML DOM Parser from http://simplehtmldom.sourceforge.net/
