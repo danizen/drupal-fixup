@@ -9,6 +9,11 @@
  * A new revision is created for each node modified in this way.
  */
 
+// Turn on error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', TRUE);
+ini_set('display_startup_errors', TRUE);
+
 // Bootstrap start
 define('DRUPAL_ROOT', '/usr/nlm/apps/cmseval/drupal7');
 $_SERVER['REMOTE_ADDR'] = "localhost"; // Necessary if running from command line
@@ -16,7 +21,7 @@ require_once DRUPAL_ROOT . '/includes/bootstrap.inc';
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 // Bootstrap end
 
-include_once('simple_html_dom.php');
+require 'simple_html_dom.php';
 
 /**
  * Print out debug output
@@ -99,35 +104,57 @@ function fixup_check_node ($node) {
   // Some nodes will not be altered by this
   $changed = false;
 
-  // Must nodes have a body, but not all
+  // Some nodes have a body, but not all
   if (field_info_instance('node', 'body', $node->type)) {
-    debugme('node '.$node->nid.' has a body');
-    $htmltext = $node->body[$node->language][0]['value'];
-    if (fixup_check_html($htmltext)) {
-      $node->body[$node->language][0]['value'] = $htmltext;
-      $changed = true;
+    debugme('node '.$node->nid.' ('. $node->type. ') has a body');
+
+    // Support a body that has more than one delta
+    foreach ($node->body[$node->language] as &$body) {
+      $htmltext = $body['value'];
+      if (fixup_check_html($htmltext)) {
+        $body['value'] = $htmltext;
+        $changed = true;
+      }
     }
   }
 
   // In our schema, some nodes have a secondary long text area
   if (field_info_instance('node', 'field_sidebar', $node->type)) {
-    debugme('node '.$node->nid.' has a sidebar');
-    $htmltext = $node->field_sidebar[$node->language][0]['value'];
-    if (fixup_check_html($htmltext)) {
-      $node->field_sidebar[$node->language][0]['value'] = $htmltext;
-      $changed = true;
+    debugme('node '.$node->nid.' ('. $node->type. ') has a sidebar');
+
+    // Support a field_sidbar that has more than one delta
+    foreach ($node->field_sidebar[$node->language] as &$morebody) {
+      $htmltext = $morebody['value'];
+      if (fixup_check_html($htmltext)) {
+        $morebody['value'] = $htmltext;
+        $changed = true;
+      }
     }
   }
 
   // we had to modify it to make it work
-  if ($changed) {
+  if (isset($GLOBALS['n'])) {
+    if ($changed) {
+      print 'Node '.$node->nid.' at path '.$node->path['alias']." needs changes\n";
+    }
+    else {
+      debugme('No need for changes on node '.$node->nid.' at path '.$node->path['alias']);
+    }
+  } 
+  elseif ($changed) {
     $node->revision = 1;
     $node->path['pathauto'] = 0;
     $node->log = "Updated automatically to fix to absolute links and links to .html";
+    $node->comment = 0;
+    $node->status = 1;
+    if (module_exists('workbench_moderation')) {
+      $node->workbench_moderation_state_new = 'published';
+    }
     node_save($node);
-    print 'Modified node '.$node->nid.' at path '.$node->path."\n";
-  } else {
-    debugme('No need for changes on node '.$node->nid.' at path '.$node->path);
+    print 'Modified node '.$node->nid.' at path '.$node->path['alias']."\n";
+  } 
+  else {
+    debugme('No need for changes on node '.$node->nid.' at path '.$node->path['alias']);
   }
 
 }
@@ -136,14 +163,21 @@ function fixup_check_node ($node) {
  * For each node, check the body for links to html
  */
 function fixup_check_all_nodes() {
-  $result = db_select('node', 'n')->fields('nid');
-  while ($obj = db_fetch_object ($result)) {
+  $count = 0;
+  $result = db_select('node', 'n')->fields('n', array('nid'))->orderBy('nid')->execute();
+  while ($obj = $result->fetchAssoc()) {
+
+    if ($count > $GLOBALS['maxcount']) {
+      return;
+    }
+    $count++;
 
     // Load the node
-    $node = node_load($obj->nid);
-    debugme("visiting node ".$node->nid." with path ".$node->path."\n");
+    $node = node_load($obj['nid']);
+    debugme("visiting node ".$node->nid." with path ".$node->path['alias']);
 
     // Check the node body
+
     fixup_check_node($node);
   }
 }
@@ -200,13 +234,14 @@ function fixup_check_nodes_by_aliases($aliases) {
  * Usage for this program
  */
 function usage($progname) {
-  print "Usage: $progname [-v] {-a|--all} | {-p|--path path }\n";
+  print "Usage: $progname [-v] [-n] [-m count] {-a|--all} | {-p|--path path }\n";
   exit(1);
 }
 
 $did_something = false;
+$GLOBALS['maxcount'] = PHP_INT_MAX;
 
-$options = getopt("vap:", array( "all", "path::" ));
+$options = getopt("vnm:ap:", array( "all", "path::" ));
 if (!is_array($options)) {
   usage($argv[0]);
 }
@@ -214,6 +249,24 @@ if (!is_array($options)) {
 // Output verbose output
 if (isset($options['v'])) {
   $GLOBALS['v'] = true;
+}
+
+// Don't really change anything
+if (isset($options['n'])) {
+  $GLOBALS['n'] = true;
+}
+
+// Max count argument
+if (isset($options['m'])) {
+  if (is_array($options['m'])) {
+    print "max count can only be given once\n";
+    exit(1);
+  }
+  elseif (preg_match('/^\d+$/', $options['m']) != 1) {
+    print "max count must be a decimal integer\n";
+    exit(1);
+  }
+  $GLOBALS['maxcount'] = (int)$options['m'];
 }
 
 // process all nodes
